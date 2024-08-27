@@ -368,23 +368,23 @@ def main():
             output_path = os.path.join(args.output_dir, person_name)
             if not os.path.exists(os.path.dirname(output_path)):
                 os.makedirs(os.path.dirname(output_path))
-            if args.repaint:
-                person_path, mask_path = (
-                    dataset.data[batch["index"][i]]["person"],
-                    dataset.data[batch["index"][i]]["mask"],
-                )
-                person_image = Image.open(person_path).resize(
-                    result.size, Image.LANCZOS
-                )
-                mask = Image.open(mask_path).resize(result.size, Image.NEAREST)
-                result = repaint(person_image, mask, result)
-            if args.concat_eval_results:
-                w, h = result.size
-                concated_result = Image.new("RGB", (w * 3, h))
-                concated_result.paste(person_images[i], (0, 0))
-                concated_result.paste(cloth_images[i], (w, 0))
-                concated_result.paste(result, (w * 2, 0))
-                result = concated_result
+            # if args.repaint:
+            #     person_path, mask_path = (
+            #         dataset.data[batch["index"][i]]["person"],
+            #         dataset.data[batch["index"][i]]["mask"],
+            #     )
+            #     person_image = Image.open(person_path).resize(
+            #         result.size, Image.LANCZOS
+            #     )
+            #     mask = Image.open(mask_path).resize(result.size, Image.NEAREST)
+            #     result = repaint(person_image, mask, result)
+            # if args.concat_eval_results:
+            #     w, h = result.size
+            #     concated_result = Image.new("RGB", (w * 3, h))
+            #     concated_result.paste(person_images[i], (0, 0))
+            #     concated_result.paste(cloth_images[i], (w, 0))
+            #     concated_result.paste(result, (w * 2, 0))
+            #     result = concated_result
             result.save(output_path)
 
 

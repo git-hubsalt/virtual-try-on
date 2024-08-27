@@ -11,3 +11,10 @@ densepose_
 playground.py
 output
 model/cloth_masker_segformer.py
+/test_dataset/*
+vton_output/
+*.ipynb
+*.sh
+*.txt
+*.jpg
+*.png

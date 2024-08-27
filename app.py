@@ -1,14 +1,12 @@
 import argparse
 import os
 from datetime import datetime
-
 import gradio as gr
 import numpy as np
 import torch
 from diffusers.image_processor import VaeImageProcessor
 from huggingface_hub import snapshot_download
 from PIL import Image
-
 from model.cloth_masker import AutoMasker, vis_mask
 from model.pipeline import CatVTONPipeline
 from utils import init_weight_dtype, resize_and_crop, resize_and_padding
@@ -163,7 +161,6 @@ def submit_function(
     mask = mask_processor.blur(mask, blur_factor=9)
 
     # Inference
-    # try:
     result_image = pipeline(
         image=person_image,
         condition_image=cloth_image,
@@ -172,10 +169,6 @@ def submit_function(
         guidance_scale=guidance_scale,
         generator=generator,
     )[0]
-    # except Exception as e:
-    #     raise gr.Error(
-    #         "An error occurred. Please try again later: {}".format(e)
-    #     )
 
     # Post-process
     masked_person = vis_mask(person_image, mask)
@@ -183,6 +176,7 @@ def submit_function(
         [person_image, masked_person, cloth_image, result_image], 1, 4
     )
     save_result_image.save(result_save_path)
+
     if show_type == "result only":
         return result_image
     else:
