@@ -1,1 +1,0 @@
-python inference.py --dataset_name "vitonhd" --data_root_path "./test_dataset" --num_inference_steps 10 --dataloader_num_workers 4 --mixed_precision no --width 768 --height 1024
