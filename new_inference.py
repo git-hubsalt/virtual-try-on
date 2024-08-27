@@ -3,7 +3,7 @@ import torch
 from diffusers.image_processor import VaeImageProcessor
 from PIL import Image
 from model.pipeline import CatVTONPipeline
-from utils import init_weight_dtype, resize_and_crop, resize_and_padding
+from utils import resize_and_crop, resize_and_padding
 
 base_model_path = "runwayml/stable-diffusion-inpainting"
 resume_path = "zhengchong/CatVTON"
@@ -16,7 +16,9 @@ WIDTH = 768
 HEIGHT = 1024
 
 
-def main(person_image, cloth_image, mask_image, cloth_type, username):
+def get_vton(
+    person_image_path, cloth_image_path, mask_image_path, cloth_type, username
+):
 
     # Pipeline
     pipeline = CatVTONPipeline(
@@ -37,13 +39,13 @@ def main(person_image, cloth_image, mask_image, cloth_type, username):
         do_convert_grayscale=True,
     )
 
-    person_image = Image.open(person_image).convert("RGB")
+    person_image = Image.open(person_image_path).convert("RGB")
     person_image = resize_and_crop(person_image, (WIDTH, HEIGHT))
 
-    cloth_image = Image.open(cloth_image).convert("RGB")
+    cloth_image = Image.open(cloth_image_path).convert("RGB")
     cloth_image = resize_and_padding(cloth_image, (WIDTH, HEIGHT))
 
-    mask_image = Image.open(mask_image).convert("L")
+    mask_image = Image.open(mask_image_path).convert("L")
     mask_image = resize_and_crop(mask_image, (WIDTH, HEIGHT))
 
     preprocessed_person_image = vae_processor.preprocess(person_image, HEIGHT, WIDTH)[0]
@@ -83,13 +85,15 @@ def main(person_image, cloth_image, mask_image, cloth_type, username):
     os.makedirs(output_dir, exist_ok=True)
 
     # 결과 저장
-    output_path = os.path.join(output_dir, username, f"{username}_{cloth_type}.jpg")
+    output_path = os.path.join(
+        output_dir, username, f"{username}_{cloth_image_path}_{cloth_type}.jpg"
+    )
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     results[0].save(output_path)
 
 
 if __name__ == "__main__":
-    main(
+    get_vton(
         person_image="man_test.jpg",
         cloth_image="concatenated_image.jpg",
         mask_image="man_test_overall.png",
