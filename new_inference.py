@@ -9,28 +9,23 @@ base_model_path = "runwayml/stable-diffusion-inpainting"
 resume_path = "zhengchong/CatVTON"
 
 seed = 42
-num_inference_steps = 50
+num_inference_steps = 3
 guidance_scale = 2.5
 
 WIDTH = 768
 HEIGHT = 1024
 
+pipeline = CatVTONPipeline(
+    attn_ckpt_version="mix",
+    attn_ckpt=resume_path,
+    base_ckpt=base_model_path,
+    weight_dtype=torch.float32,
+    device="cuda",
+    skip_safety_check=True,
+)
 
-def get_vton(
-    person_image_path, cloth_image_path, mask_image_path, cloth_type, username
-):
 
-    # Pipeline
-    pipeline = CatVTONPipeline(
-        attn_ckpt_version="mix",
-        attn_ckpt=resume_path,
-        base_ckpt=base_model_path,
-        weight_dtype=torch.float32,
-        device="cuda",
-        skip_safety_check=True,
-    )
-
-    # 이미지 전처리
+def preprocess_images(person_image_path, cloth_image_path, mask_image_path):
     vae_processor = VaeImageProcessor(vae_scale_factor=8)
     mask_processor = VaeImageProcessor(
         vae_scale_factor=8,
@@ -52,12 +47,24 @@ def get_vton(
     preprocessed_cloth_image = vae_processor.preprocess(cloth_image, HEIGHT, WIDTH)[0]
     preprocessed_mask_image = mask_processor.preprocess(mask_image, HEIGHT, WIDTH)[0]
 
+    return preprocessed_person_image, preprocessed_cloth_image, preprocessed_mask_image
+
+
+def get_vton(
+    person_image_path, cloth_image_path, mask_image_path, cloth_type, username
+):
+
+    # 이미지 전처리
+    preprocessed_person_image, preprocessed_cloth_image, preprocessed_mask_image = (
+        preprocess_images(person_image_path, cloth_image_path, mask_image_path)
+    )
+
     # 난수 고정
     generator = torch.Generator(device="cuda").manual_seed(seed)
 
     # 결과 생성
     try:
-        results = pipeline(
+        result = pipeline(
             image=preprocessed_person_image,
             condition_image=preprocessed_cloth_image,
             mask=preprocessed_mask_image,
@@ -66,10 +73,10 @@ def get_vton(
             height=HEIGHT,
             width=WIDTH,
             generator=generator,
-        )
+        )[0]
     except:
         print("Error")
-        results = pipeline(
+        result = pipeline(
             image=preprocessed_person_image[0],
             condition_image=preprocessed_cloth_image[0],
             mask=preprocessed_mask_image[0],
@@ -78,7 +85,7 @@ def get_vton(
             height=HEIGHT,
             width=WIDTH,
             generator=generator,
-        )
+        )[0]
 
     # 결과 저장 디렉토리 생성
     output_dir = "./vton_output"
@@ -89,14 +96,14 @@ def get_vton(
         output_dir, username, f"{username}_{cloth_image_path}_{cloth_type}.jpg"
     )
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    results[0].save(output_path)
+    result.save(output_path)
 
 
 if __name__ == "__main__":
     get_vton(
-        person_image="man_test.jpg",
-        cloth_image="concatenated_image.jpg",
-        mask_image="man_test_overall.png",
+        person_image_path="man_test.jpg",
+        cloth_image_path="concatenated_image.jpg",
+        mask_image_path="man_test_overall.png",
         cloth_type="overall",
-        username="wwssds",
+        username="wswssds",
     )
