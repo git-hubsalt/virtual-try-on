@@ -161,6 +161,8 @@ def get_vton(
     # 결과 저장
     save_and_upload_s3(result, username, cloth_type)
 
+    return result
+
 
 if __name__ == "__main__":
     get_vton(

@@ -19,3 +19,4 @@ vton_output/
 *.jpg
 *.png
 *.env
+.idea/
