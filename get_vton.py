@@ -1,6 +1,7 @@
 from io import BytesIO
 import os
 import time
+import requests
 import torch
 from diffusers.image_processor import VaeImageProcessor
 from PIL import Image
@@ -10,6 +11,8 @@ import boto3
 from dotenv import load_dotenv
 
 load_dotenv()
+
+print("is torch? : ", torch.cuda.is_available())
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
@@ -31,17 +34,17 @@ HEIGHT = 1024
 pipeline = CatVTONPipeline(
     attn_ckpt_version="mix",
     attn_ckpt="zhengchong/CatVTON",
-    base_ckpt="runwayml/stable-diffusion-inpainting",
+    base_ckpt="booksforcharlie/stable-diffusion-inpainting",
     weight_dtype=torch.float32,
     device="cuda",
     skip_safety_check=True,
 )
 
 
-def concat_upper_and_lower(upper_cloth_path, lower_cloth_path):
-    # 두 이미지 파일 열기
-    image1 = Image.open(upper_cloth_path)
-    image2 = Image.open(lower_cloth_path)
+def concat_upper_and_lower(image1, image2):
+    # # 두 이미지 파일 열기
+    # image1 = Image.open(upper_cloth_path)
+    # image2 = Image.open(lower_cloth_path)
 
     # 두 이미지의 너비를 맞추고, 높이를 합산
     new_width = max(image1.width, image2.width)
@@ -52,18 +55,32 @@ def concat_upper_and_lower(upper_cloth_path, lower_cloth_path):
     new_image.paste(image1, (0, 0))
     new_image.paste(image2, (0, image1.height))
 
-    # # 결과를 저장 또는 보여주기
-    # new_image.save("concatenated_image_.jpg")
-
     return new_image
 
 
 def preprocess_images(
-    person_image_path,
-    upper_cloth_path,
-    lower_cloth_path,
-    mask_image_path,
+    person_image_url,
+    upper_cloth_url,
+    lower_cloth_url,
+    mask_image_url,
 ):
+
+    response = requests.get(person_image_url)
+    if response.status_code == 200:
+        person_image = Image.open(BytesIO(response.content))
+
+    response = requests.get(upper_cloth_url)
+    if response.status_code == 200:
+        upper_cloth_image = Image.open(BytesIO(response.content))
+
+    response = requests.get(lower_cloth_url)
+    if response.status_code == 200:
+        lower_cloth_image = Image.open(BytesIO(response.content))
+
+    response = requests.get(mask_image_url)
+    if response.status_code == 200:
+        mask_image = Image.open(BytesIO(response.content))
+
     vae_processor = VaeImageProcessor(vae_scale_factor=8)
     mask_processor = VaeImageProcessor(
         vae_scale_factor=8,
@@ -72,14 +89,13 @@ def preprocess_images(
         do_convert_grayscale=True,
     )
 
-    person_image = Image.open(person_image_path).convert("RGB")
+    # person_image = Image.open(person_image_path).convert("RGB")
     person_image = resize_and_crop(person_image, (WIDTH, HEIGHT))
 
-    # cloth_image = Image.open(cloth_image_path).convert("RGB")
-    cloth_image = concat_upper_and_lower(upper_cloth_path, lower_cloth_path)
+    cloth_image = concat_upper_and_lower(upper_cloth_image, lower_cloth_image)
     cloth_image = resize_and_padding(cloth_image, (WIDTH, HEIGHT))
 
-    mask_image = Image.open(mask_image_path).convert("L")
+    # mask_image = Image.open(mask_image_path).convert("L")
     mask_image = resize_and_crop(mask_image, (WIDTH, HEIGHT))
 
     preprocessed_person_image = vae_processor.preprocess(person_image, HEIGHT, WIDTH)[0]
@@ -89,8 +105,8 @@ def preprocess_images(
     return preprocessed_person_image, preprocessed_cloth_image, preprocessed_mask_image
 
 
-def save_and_upload_s3(result, username, cloth_type):
-    start_timestamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
+def save_and_upload_s3(result, username, cloth_type, timestamp):
+    # start_timestamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
 
     # 결과 저장 디렉토리 생성
     output_dir = "./vton_output"
@@ -98,7 +114,7 @@ def save_and_upload_s3(result, username, cloth_type):
 
     # 결과 저장
     output_path = os.path.join(
-        output_dir, username, f"{username}_{cloth_type}_{start_timestamp}.jpg"
+        output_dir, username, f"{username}_{cloth_type}_{timestamp}.jpg"
     )
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     result.save(output_path)
@@ -109,26 +125,27 @@ def save_and_upload_s3(result, username, cloth_type):
     buffer.seek(0)  # 버퍼의 시작 위치로 이동
 
     bucket_name = "githubsalt-bucket"
-    object_name = f"users/{username}/vton_result/{start_timestamp}/result.jpg"
+    object_name = f"users/{username}/vton_result/{timestamp}/result.jpg"
 
     s3.upload_fileobj(buffer, bucket_name, object_name)
 
 
 def get_vton(
-    person_image_path,
-    upper_cloth_path,
-    lower_cloth_path,
-    mask_image_path,
+    person_image_url,
+    upper_cloth_url,
+    lower_cloth_url,
+    mask_image_url,
     cloth_type,
     username,
+    timestamp,
 ):
     # 이미지 전처리
     preprocessed_person_image, preprocessed_cloth_image, preprocessed_mask_image = (
         preprocess_images(
-            person_image_path,
-            upper_cloth_path,
-            lower_cloth_path,
-            mask_image_path,
+            person_image_url,
+            upper_cloth_url,
+            lower_cloth_url,
+            mask_image_url,
         )
     )
 
@@ -159,15 +176,25 @@ def get_vton(
         )[0]
 
     # 결과 저장
-    save_and_upload_s3(result, username, cloth_type)
+    save_and_upload_s3(result, username, cloth_type, timestamp)
 
 
 if __name__ == "__main__":
+
+    person_image_url = "https://githubsalt-bucket.s3.ap-northeast-2.amazonaws.com/users/a/row/240828-000129/row.jpg?response-content-disposition=inline&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEP3%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaDmFwLW5vcnRoZWFzdC0yIkcwRQIhAIJxXgd0nQ%2FXy3ZiwFcYILynyRONs65lVydsBlTYVEYfAiAVt13dH3vKJOVpiRQs203VSzL3PWTL%2BF1ntV5Yd0Vt4yroAggnEAAaDDU2NTM5MzAzMTE1OCIM8TugZcgcWaPKXSOuKsUC%2FamT3yOZN%2FjZI58Uu%2FPZHYpuskDnRGfkcDEcHi77wDxNWE1R8DwY5sHsPq9nc1vWtAkXvlYN75poixDJfMPHuslSAFk0zHxZvoN2DqGaMF4E7kud4eEdoDJFDrtNhQgYKD9P%2BK6c5MkPk28jGOIiOne2gt2Ey7ipevPQzXS9po9sbY2jptr5zM19TEVBbTEzeCquF%2BE5rGJ%2BgTn3NwYq6B5P8gqst%2BTd2QQpapEfzWxpTz9B4x5LoOH0FJ2avsqLqnTLC3V0TQv510rcwNQ%2FOp7JM2N%2Fq43RzgqKApCAAKkyWn0S7azWWpSsapONPLOFZK7%2FRa4nZJv9s3L9CsvXzjoSELdEZha7MRFm%2BhTIkoW5qMDomBKi2Nq8ZX%2FMe7se%2FiKGts31%2FBWkGSZFJdg%2B5X7IxSjuAjEr7WD0yoVAMmCZ1Q6CXjCXtu%2B2BjqzAlZHhHBi6YHjFysGk6fvl4U5C41mb4A9JqYuOaN%2FfC%2F06YKGoXznhgUJQIPgwQ7oz%2FnUHAvE2M04oW3G%2F4gscz5FzTU6z0zdhQrYbuOYAFtVliCFc7%2FhjZOdmYayOJ5wSg4TsMXbt1eMduN9C0OyiGQEoHNR06HOux%2BU801joOioJXZIt2VQ3iSVcryFAVS1cWr1IMuWtfrTS%2FZ7H2nPoFpNAWhoT9%2FpqGrWyXQ2KqmHe%2BKbp%2FHnJ2K0A3%2F8tFd3LlUZHs%2B7yO7D85lOG%2Bp1uNSb3habpp9MoKvm%2BBmixajhEv096T%2F67oziomQ%2Bn7SRm%2FT%2F4yhiaMi7W6St4eDtU9XPXh2nkTOhpLUVGNcOOL858PCoSDjttZxXrqX2eGSJ4EbQYQjTvmcg4ZcxylJLRB8D3MI%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20240907T052450Z&X-Amz-SignedHeaders=host&X-Amz-Expires=43200&X-Amz-Credential=ASIAYHJAM773DFKNUQLW%2F20240907%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Signature=524559e2fcd1a2402a16d4b1f2062bf2aa88163d068a1c8298986b7f68904070"
+
+    upper_cloth_url = "https://githubsalt-bucket.s3.ap-northeast-2.amazonaws.com/users/a/items/closet/upper.jpg?response-content-disposition=inline&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEP3%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaDmFwLW5vcnRoZWFzdC0yIkcwRQIhAIJxXgd0nQ%2FXy3ZiwFcYILynyRONs65lVydsBlTYVEYfAiAVt13dH3vKJOVpiRQs203VSzL3PWTL%2BF1ntV5Yd0Vt4yroAggnEAAaDDU2NTM5MzAzMTE1OCIM8TugZcgcWaPKXSOuKsUC%2FamT3yOZN%2FjZI58Uu%2FPZHYpuskDnRGfkcDEcHi77wDxNWE1R8DwY5sHsPq9nc1vWtAkXvlYN75poixDJfMPHuslSAFk0zHxZvoN2DqGaMF4E7kud4eEdoDJFDrtNhQgYKD9P%2BK6c5MkPk28jGOIiOne2gt2Ey7ipevPQzXS9po9sbY2jptr5zM19TEVBbTEzeCquF%2BE5rGJ%2BgTn3NwYq6B5P8gqst%2BTd2QQpapEfzWxpTz9B4x5LoOH0FJ2avsqLqnTLC3V0TQv510rcwNQ%2FOp7JM2N%2Fq43RzgqKApCAAKkyWn0S7azWWpSsapONPLOFZK7%2FRa4nZJv9s3L9CsvXzjoSELdEZha7MRFm%2BhTIkoW5qMDomBKi2Nq8ZX%2FMe7se%2FiKGts31%2FBWkGSZFJdg%2B5X7IxSjuAjEr7WD0yoVAMmCZ1Q6CXjCXtu%2B2BjqzAlZHhHBi6YHjFysGk6fvl4U5C41mb4A9JqYuOaN%2FfC%2F06YKGoXznhgUJQIPgwQ7oz%2FnUHAvE2M04oW3G%2F4gscz5FzTU6z0zdhQrYbuOYAFtVliCFc7%2FhjZOdmYayOJ5wSg4TsMXbt1eMduN9C0OyiGQEoHNR06HOux%2BU801joOioJXZIt2VQ3iSVcryFAVS1cWr1IMuWtfrTS%2FZ7H2nPoFpNAWhoT9%2FpqGrWyXQ2KqmHe%2BKbp%2FHnJ2K0A3%2F8tFd3LlUZHs%2B7yO7D85lOG%2Bp1uNSb3habpp9MoKvm%2BBmixajhEv096T%2F67oziomQ%2Bn7SRm%2FT%2F4yhiaMi7W6St4eDtU9XPXh2nkTOhpLUVGNcOOL858PCoSDjttZxXrqX2eGSJ4EbQYQjTvmcg4ZcxylJLRB8D3MI%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20240907T052946Z&X-Amz-SignedHeaders=host&X-Amz-Expires=43200&X-Amz-Credential=ASIAYHJAM773DFKNUQLW%2F20240907%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Signature=d2408ad2a4e2801ef270c62d3c198326cb7c19596d3974e4b0f8837508c5f421"
+
+    lower_cloth_url = "https://githubsalt-bucket.s3.ap-northeast-2.amazonaws.com/users/a/items/closet/lower.jpg?response-content-disposition=inline&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEP3%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaDmFwLW5vcnRoZWFzdC0yIkcwRQIhAIJxXgd0nQ%2FXy3ZiwFcYILynyRONs65lVydsBlTYVEYfAiAVt13dH3vKJOVpiRQs203VSzL3PWTL%2BF1ntV5Yd0Vt4yroAggnEAAaDDU2NTM5MzAzMTE1OCIM8TugZcgcWaPKXSOuKsUC%2FamT3yOZN%2FjZI58Uu%2FPZHYpuskDnRGfkcDEcHi77wDxNWE1R8DwY5sHsPq9nc1vWtAkXvlYN75poixDJfMPHuslSAFk0zHxZvoN2DqGaMF4E7kud4eEdoDJFDrtNhQgYKD9P%2BK6c5MkPk28jGOIiOne2gt2Ey7ipevPQzXS9po9sbY2jptr5zM19TEVBbTEzeCquF%2BE5rGJ%2BgTn3NwYq6B5P8gqst%2BTd2QQpapEfzWxpTz9B4x5LoOH0FJ2avsqLqnTLC3V0TQv510rcwNQ%2FOp7JM2N%2Fq43RzgqKApCAAKkyWn0S7azWWpSsapONPLOFZK7%2FRa4nZJv9s3L9CsvXzjoSELdEZha7MRFm%2BhTIkoW5qMDomBKi2Nq8ZX%2FMe7se%2FiKGts31%2FBWkGSZFJdg%2B5X7IxSjuAjEr7WD0yoVAMmCZ1Q6CXjCXtu%2B2BjqzAlZHhHBi6YHjFysGk6fvl4U5C41mb4A9JqYuOaN%2FfC%2F06YKGoXznhgUJQIPgwQ7oz%2FnUHAvE2M04oW3G%2F4gscz5FzTU6z0zdhQrYbuOYAFtVliCFc7%2FhjZOdmYayOJ5wSg4TsMXbt1eMduN9C0OyiGQEoHNR06HOux%2BU801joOioJXZIt2VQ3iSVcryFAVS1cWr1IMuWtfrTS%2FZ7H2nPoFpNAWhoT9%2FpqGrWyXQ2KqmHe%2BKbp%2FHnJ2K0A3%2F8tFd3LlUZHs%2B7yO7D85lOG%2Bp1uNSb3habpp9MoKvm%2BBmixajhEv096T%2F67oziomQ%2Bn7SRm%2FT%2F4yhiaMi7W6St4eDtU9XPXh2nkTOhpLUVGNcOOL858PCoSDjttZxXrqX2eGSJ4EbQYQjTvmcg4ZcxylJLRB8D3MI%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20240907T053009Z&X-Amz-SignedHeaders=host&X-Amz-Expires=43200&X-Amz-Credential=ASIAYHJAM773DFKNUQLW%2F20240907%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Signature=b231c4bc3485d94da4e1b7bba013968c40b77907bffc477bc006a02918617410"
+
+    mask_image_url = "https://githubsalt-bucket.s3.ap-northeast-2.amazonaws.com/users/a/masking/240828-011010/overall.png?response-content-disposition=inline&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEP3%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaDmFwLW5vcnRoZWFzdC0yIkcwRQIhAIJxXgd0nQ%2FXy3ZiwFcYILynyRONs65lVydsBlTYVEYfAiAVt13dH3vKJOVpiRQs203VSzL3PWTL%2BF1ntV5Yd0Vt4yroAggnEAAaDDU2NTM5MzAzMTE1OCIM8TugZcgcWaPKXSOuKsUC%2FamT3yOZN%2FjZI58Uu%2FPZHYpuskDnRGfkcDEcHi77wDxNWE1R8DwY5sHsPq9nc1vWtAkXvlYN75poixDJfMPHuslSAFk0zHxZvoN2DqGaMF4E7kud4eEdoDJFDrtNhQgYKD9P%2BK6c5MkPk28jGOIiOne2gt2Ey7ipevPQzXS9po9sbY2jptr5zM19TEVBbTEzeCquF%2BE5rGJ%2BgTn3NwYq6B5P8gqst%2BTd2QQpapEfzWxpTz9B4x5LoOH0FJ2avsqLqnTLC3V0TQv510rcwNQ%2FOp7JM2N%2Fq43RzgqKApCAAKkyWn0S7azWWpSsapONPLOFZK7%2FRa4nZJv9s3L9CsvXzjoSELdEZha7MRFm%2BhTIkoW5qMDomBKi2Nq8ZX%2FMe7se%2FiKGts31%2FBWkGSZFJdg%2B5X7IxSjuAjEr7WD0yoVAMmCZ1Q6CXjCXtu%2B2BjqzAlZHhHBi6YHjFysGk6fvl4U5C41mb4A9JqYuOaN%2FfC%2F06YKGoXznhgUJQIPgwQ7oz%2FnUHAvE2M04oW3G%2F4gscz5FzTU6z0zdhQrYbuOYAFtVliCFc7%2FhjZOdmYayOJ5wSg4TsMXbt1eMduN9C0OyiGQEoHNR06HOux%2BU801joOioJXZIt2VQ3iSVcryFAVS1cWr1IMuWtfrTS%2FZ7H2nPoFpNAWhoT9%2FpqGrWyXQ2KqmHe%2BKbp%2FHnJ2K0A3%2F8tFd3LlUZHs%2B7yO7D85lOG%2Bp1uNSb3habpp9MoKvm%2BBmixajhEv096T%2F67oziomQ%2Bn7SRm%2FT%2F4yhiaMi7W6St4eDtU9XPXh2nkTOhpLUVGNcOOL858PCoSDjttZxXrqX2eGSJ4EbQYQjTvmcg4ZcxylJLRB8D3MI%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20240907T053036Z&X-Amz-SignedHeaders=host&X-Amz-Expires=43200&X-Amz-Credential=ASIAYHJAM773DFKNUQLW%2F20240907%2Fap-northeast-2%2Fs3%2Faws4_request&X-Amz-Signature=a0c8adc7b087cec834fd24c5b0d85c217268a622bdfb029006bc8c09f11d2fd5"
+
     get_vton(
-        person_image_path="man_test.jpg",
-        upper_cloth_path="upper.jpg",
-        lower_cloth_path="lower.jpg",
-        mask_image_path="man_test_overall.png",
+        person_image_url=person_image_url,
+        upper_cloth_url=upper_cloth_url,
+        lower_cloth_url=lower_cloth_url,
+        mask_image_url=mask_image_url,
         cloth_type="overall",
-        username="a",
+        username="rtr",
+        timestamp="20210901-000000",
     )
