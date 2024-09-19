@@ -21,3 +21,5 @@ vton_output/
 *.env
 .idea/
 temp.txt
+*.zip
+aws/
