@@ -2,13 +2,6 @@ FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
 
 WORKDIR /app
 
-# RUN apt-get install -y \
-#     mesa-libGL \
-#     mesa-libGL-devel \
-#     libXtst \
-#     libXrender \
-#     libXext
-
 COPY . /app
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -27,5 +20,7 @@ RUN python -m pip install --upgrade pip
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 RUN pip install -r requirements.txt
+
+# RUN pip install requests
 
 ENTRYPOINT ["python", "vton_api.py"]

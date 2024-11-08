@@ -9,15 +9,26 @@ from model.pipeline import CatVTONPipeline
 from utils import resize_and_crop, resize_and_padding
 import boto3
 from dotenv import load_dotenv
+import subprocess
 
 load_dotenv()
 
-print("is torch? : ", torch.cuda.is_available())
+print("--------------------------------")
+print("is cuda? : ", torch.cuda.is_available())
+
+# 실행할 curl 명령어
+# curl_command = 'curl https://www.google.com'
+
+# 명령어 실행
+# result = subprocess.run(curl_command, capture_output=True, text=True)
+
+# 결과 출력
+# print(result.stdout)
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 
-# print(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+print(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
 
 s3 = boto3.client(
     "s3",
@@ -25,6 +36,8 @@ s3 = boto3.client(
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
 )
+
+print(f"s3: {s3}")
 
 SEED = 42
 NUM_INFERENCE_STEPS = 50
@@ -39,6 +52,8 @@ pipeline = CatVTONPipeline(
     device="cuda",
     skip_safety_check=True,
 )
+
+print(f"pipeline: {pipeline}")
 
 
 def concat_upper_and_lower(image1, image2):
@@ -59,12 +74,11 @@ def concat_upper_and_lower(image1, image2):
 
 
 def preprocess_images(
-    person_image_url,
-    upper_cloth_url,
-    lower_cloth_url,
-    mask_image_url,
-):
-
+        person_image_url,
+        upper_cloth_url,
+        lower_cloth_url,
+        mask_image_url,
+    ):
     response = requests.get(person_image_url)
     if response.status_code == 200:
         person_image = Image.open(BytesIO(response.content))

@@ -21,8 +21,13 @@ class VtonRequest(BaseModel):
 def home():
     return "Virtual Try On"
 
+from fastapi import FastAPI
 
-@app.post("/virtual_try_on")
+@app.get("/ping")
+async def ping():
+    return {"status": "healthy"}
+
+@app.post("/invocations")
 async def virtual_try_on(request: VtonRequest):
     get_vton(
         person_image_url=request.person_image_url,
@@ -34,8 +39,8 @@ async def virtual_try_on(request: VtonRequest):
         timestamp=request.timestamp,
     )
 
-    return {"message": "VTON started successfully"}
+    return {"message": "VTON run successfully"}
 
 
 if __name__ == "__main__":
-    uvicorn.run("vton_api:app", reload=False)
+    uvicorn.run("vton_api:app", host="0.0.0.0", port=8080, reload=False)
