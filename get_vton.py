@@ -16,19 +16,8 @@ load_dotenv()
 print("--------------------------------")
 print("is cuda? : ", torch.cuda.is_available())
 
-# 실행할 curl 명령어
-# curl_command = 'curl https://www.google.com'
-
-# 명령어 실행
-# result = subprocess.run(curl_command, capture_output=True, text=True)
-
-# 결과 출력
-# print(result.stdout)
-
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
-
-print(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
 
 s3 = boto3.client(
     "s3",
@@ -36,8 +25,6 @@ s3 = boto3.client(
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
 )
-
-print(f"s3: {s3}")
 
 SEED = 42
 NUM_INFERENCE_STEPS = 50
@@ -53,14 +40,8 @@ pipeline = CatVTONPipeline(
     skip_safety_check=True,
 )
 
-print(f"pipeline: {pipeline}")
-
 
 def concat_upper_and_lower(image1, image2):
-    # # 두 이미지 파일 열기
-    # image1 = Image.open(upper_cloth_path)
-    # image2 = Image.open(lower_cloth_path)
-
     # 두 이미지의 너비를 맞추고, 높이를 합산
     new_width = max(image1.width, image2.width)
     new_height = image1.height + image2.height
@@ -103,13 +84,11 @@ def preprocess_images(
         do_convert_grayscale=True,
     )
 
-    # person_image = Image.open(person_image_path).convert("RGB")
     person_image = resize_and_crop(person_image, (WIDTH, HEIGHT))
 
     cloth_image = concat_upper_and_lower(upper_cloth_image, lower_cloth_image)
     cloth_image = resize_and_padding(cloth_image, (WIDTH, HEIGHT))
 
-    # mask_image = Image.open(mask_image_path).convert("L")
     mask_image = resize_and_crop(mask_image, (WIDTH, HEIGHT))
 
     preprocessed_person_image = vae_processor.preprocess(person_image, HEIGHT, WIDTH)[0]
@@ -120,8 +99,6 @@ def preprocess_images(
 
 
 def save_and_upload_s3(result, username, cloth_type, timestamp):
-    # start_timestamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
-
     # 결과 저장 디렉토리 생성
     output_dir = "./vton_output"
     os.makedirs(output_dir, exist_ok=True)
