@@ -37,18 +37,17 @@ class CatVTONPipeline:
         device="cuda",
         compile=False,
         skip_safety_check=False,
-        use_tf32=True,
+        use_tf32=False,
     ):
         self.device = device
         self.weight_dtype = weight_dtype
         self.skip_safety_check = skip_safety_check
-
-        self.noise_scheduler = DDIMScheduler.from_pretrained(
-            base_ckpt, subfolder="scheduler"
-        )
+        print("device: " + self.device)
+        
         self.vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse").to(
             device, dtype=weight_dtype
         )
+
         if not skip_safety_check:
             self.feature_extractor = CLIPImageProcessor.from_pretrained(
                 base_ckpt, subfolder="feature_extractor"
@@ -56,6 +55,11 @@ class CatVTONPipeline:
             self.safety_checker = StableDiffusionSafetyChecker.from_pretrained(
                 base_ckpt, subfolder="safety_checker"
             ).to(device, dtype=weight_dtype)
+
+        self.noise_scheduler = DDIMScheduler.from_pretrained(
+            base_ckpt, subfolder="scheduler"
+        )
+        
         self.unet = UNet2DConditionModel.from_pretrained(
             base_ckpt, subfolder="unet"
         ).to(device, dtype=weight_dtype)

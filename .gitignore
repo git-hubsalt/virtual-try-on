@@ -20,3 +20,7 @@ vton_output/
 *.png
 *.env
 .idea/
+temp.txt
+*.zip
+aws/
+*.swp
