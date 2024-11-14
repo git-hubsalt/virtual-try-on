@@ -1,6 +1,6 @@
 from io import BytesIO
+import json
 import os
-import time
 import requests
 import torch
 from diffusers.image_processor import VaeImageProcessor
@@ -9,7 +9,6 @@ from model.pipeline import CatVTONPipeline
 from utils import resize_and_crop, resize_and_padding
 import boto3
 from dotenv import load_dotenv
-import subprocess
 
 load_dotenv()
 
@@ -18,6 +17,10 @@ print("is cuda? : ", torch.cuda.is_available())
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+NUM_STEP = int(os.environ.get("NUM_STEP", 15))
+QUEUE_URL = "https://sqs.ap-northeast-2.amazonaws.com/565393031158/omoib-vton-queue"
+
+print(f"NUM_STEP should be : {NUM_STEP}")
 
 s3 = boto3.client(
     "s3",
@@ -26,8 +29,16 @@ s3 = boto3.client(
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
 )
 
+sqs = boto3.client(
+    "sqs",
+    region_name="ap-northeast-2",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+)
+
+
 SEED = 42
-NUM_INFERENCE_STEPS = 50
+NUM_INFERENCE_STEPS = NUM_STEP
 WIDTH = 768
 HEIGHT = 1024
 
@@ -121,6 +132,26 @@ def save_and_upload_s3(result, username, cloth_type, timestamp):
     s3.upload_fileobj(buffer, bucket_name, object_name)
 
 
+def send_sqs(username, timestamp):
+    message_body = {
+        "userId": username,
+        "initial_timestamp": timestamp,
+    }
+
+    try:
+        response = sqs.send_message(
+            QueueUrl=QUEUE_URL, MessageBody=json.dumps(message_body)
+        )
+        print(f"Message sent to SQS with MessageId: {response['MessageId']}")
+
+        return {"statusCode": 200, "body": json.dumps("Message sent successfully!")}
+    except Exception as e:
+        print(f"Error sending message: {str(e)}")
+        return {
+            "statusCode": 500,
+            "body": json.dumps("Error sending message to SQS"),
+        }
+
 def get_vton(
     person_image_url,
     upper_cloth_url,
@@ -168,6 +199,7 @@ def get_vton(
 
     # 결과 저장
     save_and_upload_s3(result, username, cloth_type, timestamp)
+    send_sqs(username, timestamp)
 
 
 if __name__ == "__main__":
