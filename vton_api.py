@@ -13,15 +13,13 @@ class VtonRequest(BaseModel):
     lower_cloth_url: str
     mask_image_url: str
     cloth_type: str
-    username: str
+    userId: str
     timestamp: str
 
 
 @app.get("/")
 def home():
     return "Virtual Try On"
-
-from fastapi import FastAPI
 
 @app.get("/ping")
 async def ping():
@@ -35,7 +33,7 @@ async def virtual_try_on(request: VtonRequest):
         lower_cloth_url=request.lower_cloth_url,
         mask_image_url=request.mask_image_url,
         cloth_type=request.cloth_type,
-        username=request.username,
+        username=request.userId,
         timestamp=request.timestamp,
     )
 

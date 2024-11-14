@@ -37,14 +37,12 @@ class CatVTONPipeline:
         device="cuda",
         compile=False,
         skip_safety_check=False,
-        use_tf32=True,
+        use_tf32=False,
     ):
         self.device = device
         self.weight_dtype = weight_dtype
         self.skip_safety_check = skip_safety_check
         print("device: " + self.device)
-        
-        # print("noise: " + self.noise_scheduler)
         
         self.vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse").to(
             device, dtype=weight_dtype
@@ -57,8 +55,6 @@ class CatVTONPipeline:
             self.safety_checker = StableDiffusionSafetyChecker.from_pretrained(
                 base_ckpt, subfolder="safety_checker"
             ).to(device, dtype=weight_dtype)
-
-        print("vae : ", self.vae)
 
         self.noise_scheduler = DDIMScheduler.from_pretrained(
             base_ckpt, subfolder="scheduler"
