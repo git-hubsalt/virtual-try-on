@@ -46,7 +46,7 @@ pipeline = CatVTONPipeline(
     attn_ckpt_version="mix",
     attn_ckpt="zhengchong/CatVTON",
     base_ckpt="booksforcharlie/stable-diffusion-inpainting",
-    weight_dtype=torch.float32,
+    weight_dtype=torch.float16,
     device="cuda",
     skip_safety_check=True,
 )
