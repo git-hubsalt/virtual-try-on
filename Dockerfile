@@ -21,6 +21,4 @@ RUN pip install torch torchvision torchaudio --index-url https://download.pytorc
 
 RUN pip install -r requirements.txt
 
-# RUN pip install requests
-
 ENTRYPOINT ["python", "vton_api.py"]
