@@ -9,10 +9,10 @@
 
 - Diffusion 기반의 Image Virtual-Try On 모델
 - condition을 처리하기 위한 추가적인 구조 없이 origininal diffusion 모듈만 사용
-- 불필요한 condition과 전처리 단계를 제거하여 person, cloth, cloth-agnostic mask만을 필요로 하는 간소화된 inference 단계
+- 불필요한 condition과 전처리 단계를 제거하여 person, cloth, cloth-agnostic mask만을 필요로 하는 간소화된 inference
 <br>
 
 ## Process
-1️⃣ 회원가입 시 등록한 user body image에서 densepose와 SCHP를 이용해 상의+하의를 masking한 image 생성<br>
+1️⃣ 회원가입 시 등록한 user body image에서 상의+하의를 masking한 image 생성<br>
 2️⃣ 상의와 하의를 모두 피팅해야하는 경우, 한번에 수행하기 위해 item image를 concat<br>
 3️⃣ user body image, masking image, item image를 CatVTON 모델에 넣어 피팅된 이미지 반환
