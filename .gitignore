@@ -17,7 +17,6 @@ vton_output/
 *.sh
 *.txt
 *.jpg
-*.png
 *.env
 .idea/
 temp.txt
