@@ -57,7 +57,8 @@ This repository is optimized for building **custom Docker containers** to perfor
   **Both top and bottom must be provided for proper fitting.**  
 - `mask_image_url` 관련 마스크 이미지 생성 작업은 아래 링크의 지침을 참고하세요:  
   **Refer to the following instructions for generating mask images related to `mask_image_url`:**  
-  [Generate Mask Instructions](https://github.com/git-hubsalt/generate-mask)  
+  <a href="https://github.com/git-hubsalt/generate-mask" target="_blank">Generate Mask Instructions</a>
+ 
 
 - **`vton_api.py`**로 FastAPI 서버를 테스트할 때 동일한 입력 방식을 사용하면 됩니다.  
   Use the same inputs when testing the FastAPI server in **`vton_api.py`**.
@@ -71,7 +72,8 @@ This repository is optimized for building **custom Docker containers** to perfor
   If your GPU is of Ampere architecture or newer, we recommend setting use_tf32 to True. This significantly speeds up inference but increases VRAM usage (higher chance of CUDA Out-Of-Memory errors).
 - CatVTON 관련 더 자세한 설명은 아래 CatVTON 레포지토리를 참고하세요:  
   For more detailed information about CatVTON, please refer to the repository below:  
-  [CatVTON GitHub Repository](https://github.com/Zheng-Chong/CatVTON?tab=readme-ov-file)
+  <a href="https://github.com/Zheng-Chong/CatVTON?tab=readme-ov-file" target="_blank">CatVTON GitHub Repository</a>
+
 
 ## **워크플로우 / Workflow**
 <img src="asset/workflow.png" width="800" height="400"/>
